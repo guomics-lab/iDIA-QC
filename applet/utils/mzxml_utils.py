@@ -46,9 +46,3 @@ def read_mzml(mzxml_path):
         break
     return ins_id, ms_model
 
-
-# mzml_process = mzml.MzML('E:\data\guomics\gaohuanhuan\\10\mzXML\\A20201013xiangn_ml_30min_DIA.mzML')
-# mmm = mzml_process.get_by_id('IC1')
-# print(str(mmm.get('instrument serial number')))
-# read_ms_info('E:\data\guomics\gaohuanhuan\\10\mzXML\A20201013xiangn_ml_30min_DIA.mzML')
-

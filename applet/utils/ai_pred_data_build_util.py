@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 from applet.obj.PeptInfo import lc_feature_names, ms_feature_names
 
@@ -19,7 +21,9 @@ def build_data(run_info, run_data_list, f4_data_list, s7_data_list):
     ms_pred_data = {}
     for s7_data in s7_data_list:
         data_tag = s7_data.data_tag
-        data_val = float(s7_data.data_val)
+        data_val = s7_data.data_val
+        if data_val is not None:
+            data_val = float(data_val)
         if data_tag == 3:
             lc_pred_data[s7_data.pept + '_F2'] = data_val
         elif data_tag == 15:

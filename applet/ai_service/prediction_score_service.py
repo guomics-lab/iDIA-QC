@@ -24,8 +24,8 @@ PREDICTION_LABEL_FLAG = 'prediction_label'
 class PredictionScoreService(common_service.CommonService):
 
     def __init__(self, model_dir, base_output_path, file_list: [FileInfo], logger, step=10,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.model_dir = model_dir
         self.logger = logger
         self.models = self.load_models()
@@ -92,6 +92,11 @@ class PredictionScoreService(common_service.CommonService):
 
         return pred_out
 
+    def batch_prediction_score(self, data, feat_tsname):
+        model = self.models[feat_tsname]
+        pred_rlts = predict_model(model, data=data, raw_score=True)
+        return pred_rlts
+
     def prediction_all_score(self, run_info, run_data_list, f4_data_list, s7_data_list):
         df_lc_data, df_ms_data = ai_pred_data_build_util.build_data(run_info, run_data_list, f4_data_list, s7_data_list)
         run_id = run_info.run_id
@@ -118,18 +123,49 @@ class PredictionScoreService(common_service.CommonService):
             pred_info_list.append(pred_info)
         return pred_info_list
 
-    def save_to_csv(self, output_path, data_source):
-        #
-        pred_output_path = os.path.join(output_path, 'prediction_output')
+    def save_to_csv_old(self, output_path):
+        pred_output_path = os.path.join(output_path, 'pred')
+        if not os.path.exists(pred_output_path):
+            os.mkdir(pred_output_path)
+
+        lc_pred_path = os.path.join(pred_output_path, 'lc_pred')
+        ms_pred_path = os.path.join(pred_output_path, 'ms_pred')
+        if not os.path.exists(lc_pred_path):
+            os.mkdir(lc_pred_path)
+        if not os.path.exists(ms_pred_path):
+            os.mkdir(ms_pred_path)
+
+        seq_id_list = db_utils_run_data.query_all_seq_id()
+        pred_info_list = db_utils_run_data.query_all_pred_info(seq_id_list)
+        pred_info_key_dict = {}
+        for pred_info in pred_info_list:
+            if pred_info.pred_label == 0:
+                pred_label = 'qualified '
+            elif pred_info.pred_label == 1:
+                pred_label = 'unqualified'
+            else:
+                pred_label = 'unknown'
+            pred_info_key_dict.setdefault(pred_info.pred_key, []).append(
+                {'Run_ID': pred_info.run_id, 'pred_1_score': pred_info.pred_score, 'pred_label': pred_label})
+
+        for key, val in pred_info_key_dict.items():
+            save_df = pd.DataFrame(val)
+            if key in ['lc', 'F2', 'F3', 'F4']:
+                save_df.to_csv(os.path.join(lc_pred_path, '{}_prediction.csv'.format(key)))
+            else:
+                save_df.to_csv(os.path.join(ms_pred_path, '{}_prediction.csv'.format(key)))
+
+    def save_to_csv(self, output_path, data_source, run_prefix=None):
+        pred_output_path = os.path.join(output_path, 'pred')
         if not os.path.exists(pred_output_path):
             os.mkdir(pred_output_path)
 
         PRED_KEY_LIST = ['lc', 'F1', 'F2', 'F3', 'ms', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'F13', 'F14', 'F15']
 
+        # seq_id_list = db_utils_run_data.query_all_seq_id()
         run_info_list = db_utils_run_data.query_run_info_all(data_source)
         seq_id_list = [d.seq_id for d in run_info_list]
         pred_info_list = db_utils_run_data.query_all_pred_info(seq_id_list)
-        #
         seq_pred_label_dict = collections.defaultdict(dict)
         seq_pred_score_dict = collections.defaultdict(dict)
         for pred_info in pred_info_list:

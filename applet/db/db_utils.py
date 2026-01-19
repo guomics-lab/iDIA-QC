@@ -2,7 +2,8 @@ import os.path
 import sqlite3
 
 from applet.db import db_util_init
-from applet.logger_utils import logger
+
+from loguru import logger
 from applet.obj.DBEntity import RunInfo, PredInfo
 
 db_dir_path = os.path.join(os.getcwd(), 'db')
@@ -14,7 +15,7 @@ conn = sqlite3.connect(db_file_path, check_same_thread=False)
 
 db_util_init.init_sql(conn)
 
-RUN_INFO_SELECT_SQL = 'inst_name, run_id, run_name, seq_id, file_name, state, last_modify_time, file_size, run_prefix'
+RUN_INFO_SELECT_SQL = 'inst_name, run_id, run_name, seq_id, file_name, state, last_modify_time, file_size, run_prefix, file_type '
 
 
 def query_max_run_info_id():
@@ -89,7 +90,7 @@ def query_run_info(run_id) -> RunInfo:
 
 
 def query_run_info_by_file_name(file_name, source) -> RunInfo:
-    sql = 'SELECT ' + RUN_INFO_SELECT_SQL + ' from run_info where file_name = ? and source = ? and is_delete = 0'
+    sql = 'SELECT ' + RUN_INFO_SELECT_SQL + ' from run_info where file_name = ? and source = ? and is_delete = 0 order by id desc '
     try:
         c = conn.cursor()
         c.execute(sql, (file_name, source))
@@ -179,4 +180,5 @@ def convert_run_info(data):
     run_info.last_modify_time = data[6]
     run_info.file_size = data[7]
     run_info.run_prefix = data[8]
+    run_info.file_type = data[9]
     return run_info

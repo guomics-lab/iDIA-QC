@@ -10,14 +10,15 @@ from applet.service import common_service
 class S4Service(common_service.CommonService):
 
     def __init__(self, base_output_path, s4_output_path, s4_output_file_path, file_list: [FileInfo], logger, step=6,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.s4_output_path = s4_output_path
         self.s4_output_file_path = s4_output_file_path
 
     def deal_process(self):
         logger = self.logger
         try:
+            ts31 = time.time()
             self.is_running = True
             self.send_msg(0, 'Processing F4 extraction', with_time=True)
             result_csv_dir = os.path.join(self.s4_output_path)
@@ -33,21 +34,16 @@ class S4Service(common_service.CommonService):
                                                                                                                x: x.get_mzxml_file_size(),
                                                                                                            run_file_list)) / float(
                                                                                                    1024 * 1024))))
-            # self.send_msg(9, 'Deal S4 process, mzXML file count is: {}, file size is: {} MB'.format(len(run_file_list),
-            #                                                                                         int(sum(map(lambda
-            #                                                                                                         x: x.get_mzxml_file_size(),
-            #                                                                                                     run_file_list)) / float(
-            #                                                                                             1024 * 1024))))
 
             #
             for run_file_parameter in run_file_list:
-                # self.send_msg(9, 'Deal S4 process, handle_a_mzxml start, file_tag is: {}'.format(
-                #     run_file_parameter.run_name))
-                self.send_msg(9, '{} Loading run {}'.format(self.get_now_use_time(), run_file_parameter.mzXML_file_path))
+                self.send_msg(9, 'Loading run {}'.format(run_file_parameter.mzXML_file_path))
                 handle_a_mzxml(run_file_parameter.mzXML_file_path, run_file_parameter.run_name, result_tsv_writer)
             result_tsv_writer.flush()
             result_tsv_writer.close()
             # self.send_msg(1, 'Success deal S4')
+            ts32 = time.time()
+            logger.info('s4_time, file: {}, run_prefix: {}, speed_time: {}, '.format(self.file_list[0].file_name, self.file_list[0].run_prefix, ts32 - ts31))
             return True
         except Exception as e:
             logger.exception('Deal S4 exception')
@@ -116,8 +112,6 @@ def handle_a_mzxml(mzxml_path, file_tag, result_writer):
     parser.setContentHandler(MzxmlHandler(ms1_scan_list, ms2_scan_list))
     parser.parse(mzxml_path)
     write_data_to_tsv(result_writer, file_tag, ms1_scan_list, ms2_scan_list)
-    # logger.info('deal S4 process, handle_a_mzxml end, file_tag is: {}, ms1 count: {}, ms1 count: {}, take time: {}'
-    #             .format(file_tag, len(ms1_scan_list), len(ms2_scan_list), str(int(time.time() - start_time))))
 
 
 def write_data_to_tsv(result_writer, file_tag, ms1_scan_list, ms2_scan_list):

@@ -1,3 +1,4 @@
+import json
 import os
 
 import wx
@@ -5,6 +6,7 @@ import wx
 from applet.default_config import setting
 from applet.gui.common_config import common_font
 from applet import common_utils
+from applet.obj.runtime_data_obj import runtime_monitor_config_data, MonitorConfigDataObj
 
 btn_width = 120
 
@@ -42,7 +44,7 @@ class MonitorPanel(wx.Panel):
 
 class MonitorControlPanel(wx.Panel):
 
-    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(-1, 350), style=wx.TAB_TRAVERSAL,
+    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(-1, 430), style=wx.TAB_TRAVERSAL,
                  name=wx.EmptyString):
         wx.Panel.__init__(self, parent, id=id, pos=pos, size=size, style=style, name=name)
 
@@ -50,118 +52,123 @@ class MonitorControlPanel(wx.Panel):
         run_info_gb_sizer.SetFlexibleDirection(wx.BOTH)
         run_info_gb_sizer.SetNonFlexibleGrowMode(wx.FLEX_GROWMODE_SPECIFIED)
 
-        self.monitor_dir_choose_button = wx.Button(self, wx.ID_ANY, u"Monitor dir",
-                                                   wx.DefaultPosition, wx.Size(120, -1), 0)
-        self.monitor_dir_choose_button.SetFont(common_font)
-
-        run_info_gb_sizer.Add(self.monitor_dir_choose_button, wx.GBPosition(0, 0), wx.GBSpan(1, 2),
-                              wx.ALIGN_RIGHT | wx.ALL, 5)
-
-        self.monitor_dir_text = wx.TextCtrl(self, wx.ID_ANY, '',
-                                            wx.DefaultPosition, wx.Size(-1, -1), 0)
-        self.monitor_dir_text.SetFont(common_font)
-        run_info_gb_sizer.Add(self.monitor_dir_text, wx.GBPosition(0, 2), wx.GBSpan(1, 16),
-                              wx.ALL | wx.EXPAND, 5)
-
         self.diann_exe_btn = wx.Button(self, wx.ID_ANY, u"DIA-NN.exe", wx.DefaultPosition,
                                        wx.Size(btn_width, -1), 0)
         self.diann_exe_btn.SetFont(common_font)
 
-        run_info_gb_sizer.Add(self.diann_exe_btn, wx.GBPosition(1, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        run_info_gb_sizer.Add(self.diann_exe_btn, wx.GBPosition(0, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.diann_path_text = wx.TextCtrl(self, wx.ID_ANY, setting.diann_exe_path,
                                            wx.DefaultPosition, wx.Size(250, -1), 0)
         self.diann_path_text.SetFont(common_font)
 
-        run_info_gb_sizer.Add(self.diann_path_text, wx.GBPosition(1, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.diann_path_text, wx.GBPosition(0, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
 
         self.msconvert_btn = wx.Button(self, wx.ID_ANY, u"MSConvert", wx.DefaultPosition,
                                        wx.Size(btn_width, -1), 0)
         self.msconvert_btn.SetFont(common_font)
 
-        run_info_gb_sizer.Add(self.msconvert_btn, wx.GBPosition(2, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        run_info_gb_sizer.Add(self.msconvert_btn, wx.GBPosition(1, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.msconvert_path_text = wx.TextCtrl(self, wx.ID_ANY, setting.ms_exe_path,
                                                wx.DefaultPosition, wx.Size(250, -1), 0)
         self.msconvert_path_text.SetFont(common_font)
 
-        run_info_gb_sizer.Add(self.msconvert_path_text, wx.GBPosition(2, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.msconvert_path_text, wx.GBPosition(1, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
 
-        self.output_path_choose_button = wx.Button(self, wx.ID_ANY, u"Output dir",
-                                                   wx.DefaultPosition, wx.Size(btn_width, -1), 0)
-        self.output_path_choose_button.SetFont(common_font)
+        self.add_monitor_config_btn = wx.Button(self, wx.ID_ANY, u"Add monitor config", wx.DefaultPosition,
+                                       wx.Size(btn_width, -1), 0)
+        self.add_monitor_config_btn.SetFont(common_font)
+        run_info_gb_sizer.Add(self.add_monitor_config_btn, wx.GBPosition(2, 0), wx.GBSpan(1, 4), wx.ALL | wx.EXPAND, 5)
 
-        run_info_gb_sizer.Add(self.output_path_choose_button, wx.GBPosition(3, 0), wx.GBSpan(1, 2),
-                              wx.ALIGN_RIGHT | wx.ALL, 5)
+        self.fast_mode_checkBox = wx.CheckBox(self, wx.ID_ANY, u"Fast mode", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.fast_mode_checkBox.SetValue(False)
+        run_info_gb_sizer.Add(self.fast_mode_checkBox, wx.GBPosition(2, 4), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
 
-        self.file_output_dir_text = wx.TextCtrl(self, wx.ID_ANY, '',
-                                                wx.DefaultPosition, wx.Size(250, -1), 0)
-        self.file_output_dir_text.SetFont(common_font)
-
-        run_info_gb_sizer.Add(self.file_output_dir_text, wx.GBPosition(3, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
 
         '''******* scan time *******'''
+        self.monitor_data_list = wx.ListCtrl(self, wx.ID_ANY, style=wx.LC_REPORT)
+        self.monitor_data_list.InsertColumn(0, "Monitor dir", wx.LIST_FORMAT_CENTRE, width = 200)
+        self.monitor_data_list.InsertColumn(1, "Lib", wx.LIST_FORMAT_CENTRE, width = 200)
+        self.monitor_data_list.InsertColumn(2, "File type", wx.LIST_FORMAT_CENTRE, width = 110)
+        self.monitor_data_list.InsertColumn(3, "Output dir", wx.LIST_FORMAT_CENTRE, width = 200)
+        self.monitor_data_list.InsertColumn(4, "Instrument type", wx.LIST_FORMAT_CENTRE, width = 120)
+        self.monitor_data_list.InsertColumn(5, "Instrument ID", wx.LIST_FORMAT_CENTRE, width = 120)
+        self.monitor_data_list.InsertColumn(6, "Min size(MB)", wx.LIST_FORMAT_CENTRE, width = 90)
+        self.monitor_data_list.InsertColumn(7, "Keywords", wx.LIST_FORMAT_CENTRE, width = 220)
 
-        inst_btn_btn = wx.Button(self, wx.ID_ANY, u"Instrument type", wx.DefaultPosition,
-                                      wx.Size(btn_width, -1), 0)
-        inst_btn_btn.SetFont(common_font)
-        run_info_gb_sizer.Add(inst_btn_btn, wx.GBPosition(4, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        config_data_list_str = setting.config_data_list
+        config_data_list = json.loads(config_data_list_str)
+        runtime_data = []
+        for each_data in config_data_list:
+            data_obj = MonitorConfigDataObj()
+            data_obj.monitor_dir = each_data.get('monitor_dir')
+            data_obj.lib_path = each_data.get('lib_path')
+            data_obj.raw_file_type = each_data.get('raw_file_type')
+            data_obj.filter_type_remark = each_data.get('filter_type_remark')
+            data_obj.ins_select_id = int(each_data.get('ins_select_id'))
+            data_obj.inst_name = each_data.get('inst_name')
+            data_obj.run_prefix = each_data.get('run_prefix')
+            data_obj.output_dir = each_data.get('output_dir')
+            data_obj.file_filter_size = int(each_data.get('file_filter_size'))
+            data_obj.filter_type = int(each_data.get('filter_type'))
+            data_obj.filter_file_name = each_data.get('filter_file_name')
+            runtime_data.append(data_obj)
 
-        self.ins_id_choice_list = common_config['inst']
-        self.ins_id_choice = wx.Choice(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, self.ins_id_choice_list, 0)
-        self.ins_id_choice.SetFont(common_font)
-        run_info_gb_sizer.Add(self.ins_id_choice, wx.GBPosition(4, 2), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        runtime_monitor_config_data.config_data_list = runtime_data
+        total = len(runtime_monitor_config_data.config_data_list)
+        for dd, each_data in enumerate(runtime_monitor_config_data.config_data_list):
+            indexItem = self.monitor_data_list.InsertItem(total, each_data.monitor_dir)
+            self.monitor_data_list.SetItem(indexItem, 1, each_data.lib_path if each_data.lib_path else '')
+            self.monitor_data_list.SetItem(indexItem, 2, each_data.raw_file_type)
+            self.monitor_data_list.SetItem(indexItem, 3, each_data.output_dir)
+            self.monitor_data_list.SetItem(indexItem, 4, each_data.inst_name)
+            self.monitor_data_list.SetItem(indexItem, 5, each_data.run_prefix)
+            self.monitor_data_list.SetItem(indexItem, 6, str(each_data.file_filter_size))
+            self.monitor_data_list.SetItem(indexItem, 7, str(each_data.filter_type_remark) + ':' + str(each_data.filter_file_name))
 
-        run_prefix_btn_btn = wx.Button(self, wx.ID_ANY, u"Instrument ID", wx.DefaultPosition,
-                                       wx.Size(btn_width, -1), 0)
-        run_prefix_btn_btn.SetFont(common_font)
-        run_info_gb_sizer.Add(run_prefix_btn_btn, wx.GBPosition(4, 4), wx.GBSpan(1, 2), wx.ALL, 5)
-
-        self.run_prefix_text = wx.TextCtrl(self, wx.ID_ANY, wx.EmptyString,
-                                           wx.DefaultPosition, wx.Size(100, -1), 0)
-        self.run_prefix_text.SetFont(common_font)
-        run_info_gb_sizer.Add(self.run_prefix_text, wx.GBPosition(4, 6), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.monitor_data_list, wx.GBPosition(3, 0), wx.GBSpan(2, 18), wx.ALL | wx.EXPAND, 5)
 
         scan_time_button = wx.Button(self, wx.ID_ANY, u"Scan time(sec)",
                                      wx.DefaultPosition, wx.Size(btn_width, -1), 0)
         scan_time_button.SetFont(common_font)
         # scan_time_button.Disable()
-        run_info_gb_sizer.Add(scan_time_button, wx.GBPosition(4, 8), wx.GBSpan(1, 2),
+        run_info_gb_sizer.Add(scan_time_button, wx.GBPosition(5, 0), wx.GBSpan(1, 2),
                               wx.ALIGN_RIGHT | wx.ALL, 5)
         self.scan_time_ctrl = wx.SpinCtrl(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize,
-                                          wx.SP_ARROW_KEYS, 0, 1000, 30)
+                                          wx.SP_ARROW_KEYS, 0, 1000, int(setting.scan_time))
         self.scan_time_ctrl.SetFont(common_font)
-        run_info_gb_sizer.Add(self.scan_time_ctrl, wx.GBPosition(4, 10), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.scan_time_ctrl, wx.GBPosition(5, 2), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
 
         interval_time_button = wx.Button(self, wx.ID_ANY, u"Interval time(min)",
                                          wx.DefaultPosition, wx.Size(140, -1), 0)
         interval_time_button.SetFont(common_font)
         # interval_time_button.Disable()
-        run_info_gb_sizer.Add(interval_time_button, wx.GBPosition(4, 12), wx.GBSpan(1, 2),
+        run_info_gb_sizer.Add(interval_time_button, wx.GBPosition(5, 4), wx.GBSpan(1, 2),
                               wx.ALIGN_RIGHT | wx.ALL, 5)
         self.interval_time_ctrl = wx.SpinCtrl(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize,
-                                              wx.SP_ARROW_KEYS, 0, 1000, 10)
+                                              wx.SP_ARROW_KEYS, 0, 1000, int(setting.interval_time))
         self.interval_time_ctrl.SetFont(common_font)
-        run_info_gb_sizer.Add(self.interval_time_ctrl, wx.GBPosition(4, 14), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.interval_time_ctrl, wx.GBPosition(5, 6), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
         '''*************************************'''
 
         notify_email_button = wx.Button(self, wx.ID_ANY, u"Email address",
                                         wx.DefaultPosition, wx.Size(btn_width, -1), 0)
         notify_email_button.SetFont(common_font)
         # notify_email_button.Disable()
-        run_info_gb_sizer.Add(notify_email_button, wx.GBPosition(5, 0), wx.GBSpan(1, 2),
+        run_info_gb_sizer.Add(notify_email_button, wx.GBPosition(6, 0), wx.GBSpan(1, 2),
                               wx.ALIGN_RIGHT | wx.ALL, 5)
         self.notify_email_text = wx.TextCtrl(self, wx.ID_ANY, setting.notify_email,
                                              wx.DefaultPosition, wx.Size(250, -1), 0)
         self.notify_email_text.SetFont(common_font)
-        run_info_gb_sizer.Add(self.notify_email_text, wx.GBPosition(5, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.notify_email_text, wx.GBPosition(6, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
 
         '''wx token'''
         wx_token_btn = wx.Button(self, wx.ID_ANY, u"Wechat token", wx.DefaultPosition,
                                  wx.Size(btn_width, -1), 0)
         wx_token_btn.SetFont(common_font)
 
-        run_info_gb_sizer.Add(wx_token_btn, wx.GBPosition(6, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        run_info_gb_sizer.Add(wx_token_btn, wx.GBPosition(7, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.wx_token_text = wx.TextCtrl(self, wx.ID_ANY,
                                          setting.wx_token,
@@ -169,24 +176,24 @@ class MonitorControlPanel(wx.Panel):
                                          wx.Size(250, -1), 0)
         self.wx_token_text.SetFont(common_font)
 
-        run_info_gb_sizer.Add(self.wx_token_text, wx.GBPosition(6, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
+        run_info_gb_sizer.Add(self.wx_token_text, wx.GBPosition(7, 2), wx.GBSpan(1, 16), wx.ALL | wx.EXPAND, 5)
         '''***************************'''
 
-        self.file_filter_panel = FileFilterInfoPanel(self)
-        run_info_gb_sizer.Add(self.file_filter_panel, wx.GBPosition(7, 0), wx.GBSpan(2, 18), wx.ALL| wx.EXPAND, 5)
+        # self.file_filter_panel = FileFilterInfoPanel(self)
+        # run_info_gb_sizer.Add(self.file_filter_panel, wx.GBPosition(8, 0), wx.GBSpan(2, 18), wx.ALL| wx.EXPAND, 5)
 
         self.monitor_start_button = wx.Button(self, wx.ID_ANY, u"Start", wx.DefaultPosition, wx.Size(120, -1), 0)
         self.monitor_start_button.SetFont(common_font)
-        run_info_gb_sizer.Add(self.monitor_start_button, wx.GBPosition(9, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        run_info_gb_sizer.Add(self.monitor_start_button, wx.GBPosition(8, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.monitor_status_button = wx.Button(self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.Size(25, -1),
                                                wx.BU_NOTEXT)
-        run_info_gb_sizer.Add(self.monitor_status_button, wx.GBPosition(9, 2), wx.GBSpan(1, 1), wx.ALL, 5)
+        run_info_gb_sizer.Add(self.monitor_status_button, wx.GBPosition(8, 2), wx.GBSpan(1, 1), wx.ALL, 5)
 
         self.monitor_stop_button = wx.Button(self, wx.ID_ANY, u"Stop", wx.DefaultPosition, wx.Size(120, -1),
                                              0)
         self.monitor_stop_button.SetFont(common_font)
-        run_info_gb_sizer.Add(self.monitor_stop_button, wx.GBPosition(9, 3), wx.GBSpan(1, 2), wx.ALL, 5)
+        run_info_gb_sizer.Add(self.monitor_stop_button, wx.GBPosition(8, 3), wx.GBSpan(1, 2), wx.ALL, 5)
 
         run_info_gb_sizer.AddGrowableCol(17)
 

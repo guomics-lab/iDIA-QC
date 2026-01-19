@@ -86,3 +86,32 @@ class PredInfo(object):
     def get_key_val(self):
         return (self.run_id, self.seq_id, self.pred_key, self.pred_score,
                 self.pred_label)
+
+
+
+class DIAOutputInfo(object):
+
+    def __init__(self):
+        self.seq_id = None
+        self.run_prefix = None
+        self.file_name = None
+        self.data_source = None
+        self.precursor_ident = None
+        self.protein_ident = None
+        self.total_quantity = None
+        self.ms1_signal = None
+        self.ms2_signal = None
+        self.fwhm_scans = None
+        self.fwhm_rt = None
+        self.acc_ms1 = None
+        self.acc_ms1_corr = None
+        self.acc_ms2 = None
+        self.acc_ms2_corr = None
+        self.ms2_instability = None
+
+
+    def get_key_val(self):
+        return (self.seq_id, self.run_prefix, self.file_name, self.data_source, self.precursor_ident, self.protein_ident,
+                self.total_quantity, self.ms1_signal, self.ms2_signal, self.fwhm_scans, self.fwhm_rt
+                , self.acc_ms1, self.acc_ms1_corr, self.acc_ms2, self.acc_ms2_corr, self.ms2_instability)
+

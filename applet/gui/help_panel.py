@@ -18,10 +18,10 @@ class HelpPanel(wx.Panel):
         # self.about_text.SetSize((-1, 600))
 
         about_text_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        #
-        about_text_sizer.AddSpacer(100)  #
+        # 在StaticText周围添加间距空白
+        about_text_sizer.AddSpacer(100)  # 左侧间距
         about_text_sizer.Add(self.about_text, 1, wx.EXPAND)
-        about_text_sizer.AddSpacer(100)  #
+        about_text_sizer.AddSpacer(100)  # 右侧间距
 
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(about_text_sizer, 3, wx.EXPAND | wx.ALL, 10)

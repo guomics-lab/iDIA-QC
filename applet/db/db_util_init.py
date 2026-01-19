@@ -77,6 +77,28 @@ def init_sql(conn):
     );
     '''
 
+    sql_create_dia_output_info = '''
+    CREATE TABLE if not exists "dia_output_info" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "seq_id" text(50),
+      "run_prefix" TEXT(50),
+      "file_name" TEXT(100),
+      "data_source" integer(2),
+      "precursor_ident" integer,
+      "protein_ident" integer,
+      "total_quantity" integer,
+      "ms1_signal" integer,
+      "ms2_signal" integer,
+      "fwhm_scans" real,
+      "fwhm_rt" real,
+      "acc_ms1" real,
+      "acc_ms1_corr" real,
+      "acc_ms2" real,
+      "acc_ms2_corr" real,
+      "ms2_instability" real
+    );
+    '''
+
     create_pred_result_index_sql = '''
     CREATE INDEX "seq_id"
     ON "pred_result" (
@@ -119,6 +141,7 @@ def init_sql(conn):
     );
     '''
 
+
     cursor.execute(sql_create_inst_info)
     cursor.execute(sql_create_run_data)
     cursor.execute(sql_create_run_data_f4)
@@ -126,6 +149,7 @@ def init_sql(conn):
     cursor.execute(sql_create_run_info)
     cursor.execute(sql_create_pred_result)
     cursor.execute(sql_create_increase_info)
+    cursor.execute(sql_create_dia_output_info)
 
     try:
         cursor.execute(create_run_info_index_sql1)

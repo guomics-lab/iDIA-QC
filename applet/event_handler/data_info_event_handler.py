@@ -2,18 +2,19 @@ import os
 from collections import defaultdict
 
 import wx
+from loguru import logger
 
 from applet.ai_service.prediction_score_service import PredictionScoreService
 from applet.db import db_utils_run_data
-from applet.gui.data_info_panel import DataInfoPanel
-from applet.logger_utils import logger
-from applet.service.pic_service import PicService
+from applet.gui.data_info_panel import DataInfoDIAPanel, DiaNNInfoPanel
+from applet.service.dia.pic_service import PicService
 
-PRED_KEY_LIST = ['lc','F1', 'F2', 'F3', 'ms', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'F13', 'F14', 'F15']
+PRED_KEY_LIST = ['lc', 'F1', 'F2', 'F3', 'ms', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'F13', 'F14',
+                 'F15']
 
 
-class DataInfoEventHandler(object):
-    def __init__(self, data_info_panel: DataInfoPanel):
+class DataInfoDIAEventHandler(object):
+    def __init__(self, data_info_panel: DataInfoDIAPanel):
         self.data_info_panel = data_info_panel
 
     def get_run_pred_map(self, seq_id_list):
@@ -138,7 +139,6 @@ class DataInfoEventHandler(object):
             ope_grid.SetCellValue(row_index, 2, str(run_info.run_id))
             ope_grid.SetCellValue(row_index, 3, str(run_info.run_name))
             for d_index, pred_key in enumerate(PRED_KEY_LIST):
-                # old_pred_key = new_map_dict[pred_key]
                 if run_info.file_type != 'D' and pred_key == 'F15':
                     ope_grid.SetCellValue(row_index, d_index + 4, '-')
                 else:
@@ -279,3 +279,32 @@ class DataInfoEventHandler(object):
             if msg_box.ShowModal() == wx.ID_YES:
                 msg_box.Destroy()
             return
+
+
+class DataInfoDiaNNEventHandler(object):
+
+    def __init__(self, data_info_panel: DiaNNInfoPanel):
+        self.data_info_panel = data_info_panel
+
+    '''
+    
+    '''
+
+    def load_grid_data_with_param(self, event):
+
+        ope_grid = self.data_info_panel.run_diann_info_panel.run_data_list_run_grid
+        if ope_grid.NumberRows > 0:
+            ope_grid.DeleteRows(pos=0, numRows=ope_grid.NumberRows)
+
+        # 查询run data
+        run_data_list = db_utils_run_data.query_diann_data()
+
+        ope_grid.AppendRows(len(run_data_list))
+        row_index = 0
+        for run_info in run_data_list:
+            ope_grid.SetCellValue(row_index, 1, str(run_info.run_prefix))
+            ope_grid.SetCellValue(row_index, 2, str(run_info.file_name))
+            ope_grid.SetCellValue(row_index, 3, str(run_info.precursor_ident))
+            ope_grid.SetCellValue(row_index, 4, str(run_info.protein_ident))
+
+            row_index = row_index + 1

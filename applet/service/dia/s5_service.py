@@ -14,16 +14,16 @@ base_val_min_count = 100
 class S5Service(common_service.CommonService):
 
     def __init__(self, base_output_path, output_dir_s5, output_file_S5_ms1_chazi, s4_file_path, file_list: [FileInfo],
-                 logger, step=7, pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 logger, step=7, pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.s4_file_path = s4_file_path
         self.s5_output_file_path = os.path.join(self.base_output_path, output_dir_s5)
         self.output_file_S5_ms1_chazi = output_file_S5_ms1_chazi
 
-    #
     def deal_process(self):
         logger = self.logger
         try:
+            ts31 = time.time()
             self.send_msg(0, '')
             if not os.path.exists(self.s5_output_file_path):
                 os.mkdir(self.s5_output_file_path)
@@ -38,6 +38,7 @@ class S5Service(common_service.CommonService):
             ms1_file_x['file'] = df_run
             #
             all_data = pd.DataFrame()
+
 
             for run_info in self.file_list:
                 # self.send_msg(9, 'Deal S5: {}'.format(run_info.run_name))
@@ -65,6 +66,8 @@ class S5Service(common_service.CommonService):
                 all_data = pd.concat([all_data, iy_tmp], axis=1)
             all_data.to_csv(chazi_file_path, index=False)
             logger.info('end S5 process, s5_chazi_file_path is: {}'.format(chazi_file_path))
+            ts32 = time.time()
+            logger.info('s5_time, file: {}, run_prefix: {}, speed_time: {}, '.format(self.file_list[0].file_name, self.file_list[0].run_prefix, ts32 - ts31))
             self.send_msg(1, '')
             return True
         except Exception as e:
@@ -94,10 +97,8 @@ def find_start_index(data, base_val):
     return start_index
 
 
-#
 def find_end_index(data, base_val):
     three_base_val = base_val * 3
-    #
     end_index = 0
     count = 0
     for index in range(len(data)):
@@ -116,18 +117,14 @@ def find_end_index(data, base_val):
 
 #
 def filter_data(tmp_x, data):
-    #
 
-    #
     base_val = np.mean(data[:100])
 
-    #
     start_index = find_start_index(data, base_val)
     end_index = find_end_index(data, base_val)
     if end_index < start_index:
         end_index = len(data) - 1
     print('start_index = {}, end_index = {}'.format(start_index, end_index))
-    #
     tmp_x_new = tmp_x[start_index: end_index]
     data_new = data[start_index: end_index]
     return tmp_x_new, data_new

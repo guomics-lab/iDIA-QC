@@ -7,6 +7,10 @@ f_15_16_pept_list = ['ETLPAEQDLTTK', 'EDILSFLEK', 'EVGADFTIQVGK', 'ADTQTYQPYNK',
                      'NVSIGIVGK', 'VVEIRPGLPVTVK', 'VYGTGSLALYEK', 'ELLEVVNK', 'AGDEFVEK', 'DVRPITEQIAVTAGCK',
                      'GIDYEIVPINLIK', 'TNVSNYER']
 
+f3_and_f15_pept_list = []
+f3_and_f15_pept_list.extend(f_3_pept_list)
+f3_and_f15_pept_list.extend(f_15_16_pept_list)
+
 ms_feature_names = ['+1_F4', '+2_F4', '+3_F4', '+4_F4', '+5_F4', '+6_F4', '+1_percent_F4', '+2_percent_F4',
                     '+3_percent_F4', '+4_percent_F4', '+5_percent_F4', '+6_percent_F4',
                     'Intensity_variation(%)_F5',

@@ -1,11 +1,13 @@
-
+# F17处理.d文件的脚本
+import multiprocessing
 import os.path
+import threading
 
 import numpy as np
 import pandas as pd
 from timspy.df import TimsPyDF
 
-from applet.logger_utils import logger
+from loguru import logger
 from applet.obj.Entity import FileInfo, FileTypeEnum
 
 
@@ -45,8 +47,25 @@ class F17Data:
             self.im_wavg = float(f'{{:.{str(im_digits)}f}}'.format(float(self.im_wavg)))
 
 
-def deal(output_dir, file_list: [FileInfo]):
+def deal_pro(wait_deal_file, output_dir):
+    save_data = []
+    for file_info in wait_deal_file:
+        try:
+            logger.info('deal F17: {}'.format(file_info.file_path))
+            tn = threading.Thread()
+            tn.start()
+            tn.join()
+            f17_data = F17Data(file_info.file_path)
+            run_id = file_info.run_id
+            save_data.append({'Run_ID': run_id, '1/K0 [Vs/cm2]': f17_data.im_wavg, 'U [V]': f17_data.im_equ_v})
+            logger.info('deal F17 over: {}'.format(file_info.file_path))
+        except Exception:
+            logger.exception('Deal F17 exception')
+    df = pd.DataFrame(save_data)
+    df.to_csv(os.path.join(output_dir, 'F17.csv'))
 
+
+def deal(output_dir, file_list: [FileInfo]):
     logger.info('Start deal F17, file count: {}'.format(len(file_list)))
     wait_deal_file = []
     for file_info in file_list:
@@ -56,14 +75,8 @@ def deal(output_dir, file_list: [FileInfo]):
     logger.info('Start deal F17, .d file count: {}'.format(len(wait_deal_file)))
     if len(wait_deal_file) == 0:
         return
-    save_data = []
-    for file_info in wait_deal_file:
-        f17_data = F17Data(file_info.file_path)
-        run_id = file_info.run_id
-        save_data.append({'Run_ID': run_id, '1/K0 [Vs/cm2]': f17_data.im_wavg, 'U [V]': f17_data.im_equ_v})
-    df = pd.DataFrame(save_data)
-    df.to_csv(os.path.join(output_dir, 'F17.csv'))
+
+    tn = multiprocessing.Process(target=deal_pro, args=(file_list, output_dir))
+    tn.start()
+    tn.join()
     logger.info('End deal F17')
-
-
-

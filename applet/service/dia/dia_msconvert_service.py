@@ -10,12 +10,13 @@ from applet.obj.Entity import FileTypeEnum, FileInfo
 from applet.service import common_service
 
 
-class MSConvertService(common_service.CommonService):
+class DIAMSConvertService(common_service.CommonService):
     def __init__(self, msconvert_path, base_output_path, file_list: [FileInfo], logger, step=2,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.msconvert_path = msconvert_path
 
+    #
     def deal_process(self):
         logger = self.logger
         try:
@@ -32,6 +33,7 @@ class MSConvertService(common_service.CommonService):
             if not os.path.exists(mzXML_output_path):
                 os.makedirs(mzXML_output_path)
             for file_info in self.file_list:
+                t1 = time.time()
                 if not self.run_flag:
                     self.send_msg(2, msg='Click stop')
                     logger.error('msconvert stop')
@@ -42,6 +44,8 @@ class MSConvertService(common_service.CommonService):
                 file_info.mzxml_file_relative_path = os.path.join(setting.output_dir_s1, file_info.mzXML_file_name)
                 self.deal_one_convert(mzXML_output_path, file_info)
                 deal_count += 1
+                t2 = time.time()
+                logger.info('msconvert_time, file: {}, run_prefix: {}, speed_time: {}, '.format(file_info.file_name, file_info.run_prefix, t2 - t1))
                 logger.info('end msconvert file {}, {}/{}'.format(file_info.file_name, deal_count, len(self.file_list)))
                 if os.path.exists(file_info.mzXML_file_path):
                     continue
@@ -49,9 +53,11 @@ class MSConvertService(common_service.CommonService):
                     logger.error('fail msconvert file {}'.format(file_info.file_name))
                     self.send_msg(3, msg='fail msconvert file {}'.format(file_info.file_name))
                     return False
+            #
             logger.info('success msconvert, file count is: {}, mzXML_output_path is: {}'.format(len(self.file_list),
                                                                                                 mzXML_output_path))
             self.send_msg(1, msg='Finished\nmsconvert exited')
+
             return True
         except Exception as e:
             logger.exception('deal msconvert exception')
@@ -88,6 +94,7 @@ class MSConvertService(common_service.CommonService):
             self.send_msg(9, msg='File type not valid,{}'.format(file_name))
             return None
 
+    #
     def msconvert_one(self, cmd, cmd_mzml, file_info):
         logger = self.logger
         logger.info('start msconvert file {}, '.format(file_info.file_name))
@@ -95,36 +102,15 @@ class MSConvertService(common_service.CommonService):
         self.send_msg(10, msg='')
         self.send_msg(9, msg='{}'.format(cmd), with_time=True)
         logger.info('cmd: {}'.format(cmd))
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, creationflags=134217728)
-        stdout = p.stdout
-        while True:
-            output = stdout.readline()
-            if output == b'' or (output == '' and p.poll() is not None):
-                break
-            logger.info(output)
-            if output:
-                info_msg = output.decode('utf-8')
-                info_msg = info_msg.rstrip()
-                if len(info_msg) == 0:
-                    continue
-                self.send_msg(9, msg='{}'.format(info_msg), with_time=True)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=134217728)
+        try:
+            stdout, errs = p.communicate(timeout=1800)
+            self.send_msg(9, msg='{}'.format(stdout), with_time=True)
+        except Exception:
+
+            self.logger.exception('MSConvert process error')
+            self.send_msg(9, msg='MSConvert process error', with_time=True)
         self.send_msg(9, 'Finished the conversion of file to mzXML', True)
-        logger.info('cmd_mzml: {}'.format(cmd_mzml))
-        self.send_msg(9, msg='{}'.format(cmd_mzml), with_time=True)
-        p = subprocess.Popen(cmd_mzml, stdout=subprocess.PIPE, creationflags=134217728)
-        stdout = p.stdout
-        while True:
-            output = stdout.readline()
-            if output == b'' or (output == '' and p.poll() is not None):
-                break
-            logger.info(output)
-            if output:
-                info_msg = output.decode('utf-8')
-                info_msg = info_msg.rstrip()
-                if len(info_msg) == 0:
-                    continue
-                self.send_msg(9, msg='{}'.format(info_msg), with_time=True)
 
         self.send_msg(9, 'Finished the conversion of file to mzML format', True)
         self.send_msg(11, '')
-        # self.send_msg(11, 'End msconvert, {}'.format(file_info.file_name))

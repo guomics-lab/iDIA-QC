@@ -45,7 +45,7 @@ class RunInfoPanel(wx.Panel):
 
 class ConfigPanel(wx.Panel):
 
-    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(600, 200), style=wx.TAB_TRAVERSAL,
+    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(600, 240), style=wx.TAB_TRAVERSAL,
                  name=wx.EmptyString):
         wx.Panel.__init__(self, parent, id=id, pos=pos, size=size, style=style, name=name)
 
@@ -57,49 +57,65 @@ class ConfigPanel(wx.Panel):
         input_gb_sizer.SetFlexibleDirection(wx.BOTH)
         input_gb_sizer.SetNonFlexibleGrowMode(wx.FLEX_GROWMODE_SPECIFIED)
 
+        file_type_button = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"File type",
+                                     wx.DefaultPosition, wx.Size(btn_width, -1), 0)
+        file_type_button.SetFont(common_font)
+
+        input_gb_sizer.Add(file_type_button, wx.GBPosition(0, 0), wx.GBSpan(1, 2),
+                           wx.ALIGN_RIGHT | wx.ALL, 5)
+
+        self.dia_btn = wx.RadioButton(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"DIA", wx.DefaultPosition,
+                                      wx.DefaultSize, wx.RB_GROUP)
+        input_gb_sizer.Add(self.dia_btn, wx.GBPosition(0, 2), wx.GBSpan(1, 2), wx.ALL, 5)
+
+        # self.dda_btn = wx.RadioButton(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"DDA",
+        #                               wx.DefaultPosition, wx.DefaultSize, 0)
+        # input_gb_sizer.Add(self.dda_btn, wx.GBPosition(0, 4), wx.GBSpan(1, 2), wx.ALL, 5)
+
+
         self.diann_exe_btn = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"DIA-NN.exe", wx.DefaultPosition,
                                        wx.Size(btn_width, -1), 0)
         self.diann_exe_btn.SetFont(common_font)
 
-        input_gb_sizer.Add(self.diann_exe_btn, wx.GBPosition(0, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(self.diann_exe_btn, wx.GBPosition(1, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.diann_path_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY, setting.diann_exe_path,
                                            wx.DefaultPosition, wx.Size(250, -1), 0)
         self.diann_path_text.SetFont(common_font)
 
-        input_gb_sizer.Add(self.diann_path_text, wx.GBPosition(0, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.diann_path_text, wx.GBPosition(1, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
 
         self.msconvert_btn = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"MSConvert", wx.DefaultPosition,
                                        wx.Size(btn_width, -1), 0)
         self.msconvert_btn.SetFont(common_font)
 
-        input_gb_sizer.Add(self.msconvert_btn, wx.GBPosition(1, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(self.msconvert_btn, wx.GBPosition(2, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.msconvert_path_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY, setting.ms_exe_path,
                                                wx.DefaultPosition, wx.Size(250, -1), 0)
         self.msconvert_path_text.SetFont(common_font)
 
-        input_gb_sizer.Add(self.msconvert_path_text, wx.GBPosition(1, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.msconvert_path_text, wx.GBPosition(2, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
 
         '''Inst id'''
         inst_btn_btn = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"Instrument type", wx.DefaultPosition,
                                  wx.Size(btn_width, -1), 0)
         inst_btn_btn.SetFont(common_font)
-        input_gb_sizer.Add(inst_btn_btn, wx.GBPosition(2, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(inst_btn_btn, wx.GBPosition(3, 0), wx.GBSpan(1, 2), wx.ALL, 5)
         self.ins_id_choice_list = common_config['inst']
         self.ins_id_choice = wx.Choice(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, self.ins_id_choice_list, 0)
         self.ins_id_choice.SetFont(common_font)
-        input_gb_sizer.Add(self.ins_id_choice, wx.GBPosition(2, 2), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.ins_id_choice, wx.GBPosition(3, 2), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
 
         run_prefix_btn_btn = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"Instrument ID", wx.DefaultPosition,
                                  wx.Size(btn_width, -1), 0)
         run_prefix_btn_btn.SetFont(common_font)
-        input_gb_sizer.Add(run_prefix_btn_btn, wx.GBPosition(2, 4), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(run_prefix_btn_btn, wx.GBPosition(3, 4), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.run_prefix_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY, setting.inst_id,
                                                wx.DefaultPosition, wx.Size(100, -1), 0)
         self.run_prefix_text.SetFont(common_font)
-        input_gb_sizer.Add(self.run_prefix_text, wx.GBPosition(2, 6), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.run_prefix_text, wx.GBPosition(3, 6), wx.GBSpan(1, 2), wx.ALL | wx.EXPAND, 5)
 
         '''***************************'''
 
@@ -109,7 +125,7 @@ class ConfigPanel(wx.Panel):
         notify_email_btn.SetFont(common_font)
         # notify_email_btn.Disable()
 
-        input_gb_sizer.Add(notify_email_btn, wx.GBPosition(3, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(notify_email_btn, wx.GBPosition(4, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.notify_email_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY,
                                              setting.notify_email,
@@ -117,7 +133,7 @@ class ConfigPanel(wx.Panel):
                                              wx.Size(250, -1), 0)
         self.notify_email_text.SetFont(common_font)
 
-        input_gb_sizer.Add(self.notify_email_text, wx.GBPosition(3, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.notify_email_text, wx.GBPosition(4, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
         '''***************************'''
 
         '''wx token'''
@@ -125,7 +141,7 @@ class ConfigPanel(wx.Panel):
                                      wx.Size(btn_width, -1), 0)
         wx_token_btn.SetFont(common_font)
 
-        input_gb_sizer.Add(wx_token_btn, wx.GBPosition(4, 0), wx.GBSpan(1, 2), wx.ALL, 5)
+        input_gb_sizer.Add(wx_token_btn, wx.GBPosition(5, 0), wx.GBSpan(1, 2), wx.ALL, 5)
 
         self.wx_token_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY,
                                              setting.wx_token,
@@ -133,7 +149,7 @@ class ConfigPanel(wx.Panel):
                                              wx.Size(250, -1), 0)
         self.wx_token_text.SetFont(common_font)
 
-        input_gb_sizer.Add(self.wx_token_text, wx.GBPosition(4, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.wx_token_text, wx.GBPosition(5, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
         '''***************************'''
 
         input_sb_sizer.Add(input_gb_sizer, 1, wx.EXPAND, 5)
@@ -149,7 +165,7 @@ class ConfigPanel(wx.Panel):
 
 class InputPanel(wx.Panel):
 
-    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(600, 340), style=wx.TAB_TRAVERSAL,
+    def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.Size(600, 320), style=wx.TAB_TRAVERSAL,
                  name=wx.EmptyString):
         wx.Panel.__init__(self, parent, id=id, pos=pos, size=size, style=style, name=name)
 
@@ -191,18 +207,19 @@ class InputPanel(wx.Panel):
 
         input_gb_sizer.Add(self.raw_file_path_text, wx.GBPosition(1, 0), wx.GBSpan(5, 8), wx.ALL | wx.EXPAND, 5)
 
+
         self.output_path_choose_button = wx.Button(input_sb_sizer.GetStaticBox(), wx.ID_ANY, u"Output dir",
                                                    wx.DefaultPosition, wx.Size(btn_width, -1), 0)
         self.output_path_choose_button.SetFont(common_font)
 
-        input_gb_sizer.Add(self.output_path_choose_button, wx.GBPosition(7, 0), wx.GBSpan(1, 2),
+        input_gb_sizer.Add(self.output_path_choose_button, wx.GBPosition(6, 0), wx.GBSpan(1, 2),
                            wx.ALIGN_RIGHT | wx.ALL, 5)
 
         self.file_output_dir_text = wx.TextCtrl(input_sb_sizer.GetStaticBox(), wx.ID_ANY, setting.output_dir_base,
                                                 wx.DefaultPosition, wx.Size(250, -1), 0)
         self.file_output_dir_text.SetFont(common_font)
 
-        input_gb_sizer.Add(self.file_output_dir_text, wx.GBPosition(7, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
+        input_gb_sizer.Add(self.file_output_dir_text, wx.GBPosition(6, 2), wx.GBSpan(1, 6), wx.ALL | wx.EXPAND, 5)
 
         input_gb_sizer.AddGrowableCol(6)
 

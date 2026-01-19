@@ -23,6 +23,7 @@ class FileInfo(object):
         self.inst_name = None
         self.run_prefix = None
         self.run_name = None
+        self.run_id = None
         self.diann_temp_file_path = None
         self.diann_temp_stats_file_path = None
         self.diann_result_stats_file_path = None
@@ -40,3 +41,14 @@ class FileInfo(object):
     def get_mzxml_file_size(self):
         return os.path.getsize(self.mzXML_file_path)
 
+class FileScanParam(object):
+
+    def __init__(self):
+        self.source_dir_path = None
+        self.interval_time = None
+        self.file_suffix_list = []
+        self.file_filter_size = 0
+        self.filter_type = None
+        self.filter_file_name_list = None
+
+        self.raw_file_type = None

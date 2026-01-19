@@ -5,18 +5,26 @@ import os
 import shutil
 import subprocess
 import time
+from applet import common_utils
 
 from applet.default_config import setting
 from applet.obj.Entity import FileInfo, FileTypeEnum
 from applet.service import common_service
 
 
+common_config = common_utils.read_yml()
+
+diann_thread = common_config['diann']['thread']
+
 class DiannAnalysisService(common_service.CommonService):
     def __init__(self, diann_path, base_output_path, file_list: [FileInfo], logger, step=3,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, lib_path=None, conn_send=None, run_cmd=True):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.diann_path = diann_path
+        self.lib_path = lib_path
+        self.run_cmd = run_cmd
 
+    #
     def deal_process(self):
         logger = self.logger
         try:
@@ -40,8 +48,8 @@ class DiannAnalysisService(common_service.CommonService):
                 if not self.run_flag:
                     self.send_msg(2, 'Click stop')
                     return False
-                # 根据文件名再创建一个文件夹
-                diann_temp_file_out_path = os.path.join(diann_temp_out_path, file_info.base_file_name)
+                #
+                diann_temp_file_out_path = diann_temp_out_path
                 if not os.path.exists(diann_temp_file_out_path):
                     os.mkdir(diann_temp_file_out_path)
 
@@ -62,11 +70,17 @@ class DiannAnalysisService(common_service.CommonService):
                 file_info.stats_file_relative_path = '{}/{}_result/{}_mainoutput.stats.tsv'. \
                     format(setting.output_dir_s2, setting.output_dir_s2, file_info.base_file_name)
 
+                if not self.run_cmd:
+                    continue
+                ts1 = time.time()
                 self.deal_one_diann(file_info)
+                ts2 = time.time()
+                logger.info('diann_time, file: {}, run_prefix: {}, speed_time: {}, '.format(file_info.file_name, file_info.run_prefix, ts2 - ts1))
                 deal_count += 1
                 logger.info(
                     'end diann analysis one, {}/{}'.format(file_info.file_name, deal_count, len(self.file_list)))
                 if os.path.exists(file_info.diann_temp_file_path):
+                    #
                     logger.info('copy result file, diann_temp_file_path is: {}, target file path is: {}'.format(
                         file_info.diann_temp_file_path, file_info.diann_result_file_path))
                     # os.system(result_file_mv_cmd)
@@ -84,6 +98,7 @@ class DiannAnalysisService(common_service.CommonService):
                                   msg='DIA-NN error, result file is not exist, file name is: {}, temp file path is: {}'.format(
                                       file_info.file_name, file_info.diann_temp_file_path))
                     return False
+            #
             self.send_msg(1, msg='DIA-NN exited.')
             return True
         except Exception as e:
@@ -93,6 +108,7 @@ class DiannAnalysisService(common_service.CommonService):
         finally:
             self.is_running = False
 
+    #
     def deal_one_diann(self, file_info: FileInfo):
         logger = self.logger
         file_type = file_info.file_type
@@ -106,39 +122,34 @@ class DiannAnalysisService(common_service.CommonService):
             return None
 
         if file_type == FileTypeEnum.RAW or file_type == FileTypeEnum.WIFF:
-            org_file_path = file_info.mzML_file_path
+            org_file_path = file_info.file_path
         elif file_type == FileTypeEnum.D:
             org_file_path = file_info.file_path
 
-        lib_path = setting.get_lib_path_by_file_type(file_info.file_type)
-        cmd = '"{}" --f "{}" --lib "{}" --threads 2 --verbose 1 --out "{}" --qvalue 0.01 --matrices ' \
+        run_lib_path = self.lib_path
+        if run_lib_path is None or len(run_lib_path) == 0 or not os.path.exists(run_lib_path):
+            run_lib_path = setting.get_lib_path_by_file_type(file_info.file_type)
+            logger.info('lib not exist, use default lib: {}'.format(run_lib_path))
+
+        cmd = '"{}" --f "{}" --lib "{}" --threads {} --verbose 1 --out "{}" --qvalue 0.01 --matrices ' \
               '--met-excision --cut K*,R* --mass-acc {} --mass-acc-ms1 20 --individual-mass-acc --individual-windows --smart-profiling ' \
-              '--pg-level 1 --peak-center --no-ifs-removal'.format(self.diann_path, org_file_path, lib_path,
+              '--pg-level 1 --peak-center --no-ifs-removal'.format(self.diann_path, org_file_path, run_lib_path, diann_thread,
                                                                    file_info.diann_temp_file_path,
                                                                    mass_acc_ms1)
 
         self.diann_analysis_one(cmd, file_info)
 
+    #
     def diann_analysis_one(self, cmd, file_info: FileInfo):
         logger = self.logger
         logger.info('diann analysis one, file name is: {}, cmd is: {}'.format(file_info.file_name, cmd))
         self.send_msg(20, '')
         self.send_msg(9, msg='{}'.format(cmd), with_time=True)
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, creationflags=134217728)
-        stdout = p.stdout
-        while True:
-            output = stdout.readline()
-            if output == b'' or (output == '' and p.poll() is not None):
-                break
-            logger.info(output)
-            if output:
-                info_msg = output.decode('utf-8')
-                info_msg = info_msg.rstrip()
-                if len(info_msg) == 0:
-                    continue
-                if 'files will be processed' in info_msg:
-                    info_msg = info_msg + ' separately.'
-                if '] ' in info_msg:
-                    info_msg = info_msg[info_msg.index('] ') + 2:]
-                self.send_msg(9, msg='{}'.format(info_msg), with_time=True)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, creationflags=134217728)
+        try:
+            stdout, errs = p.communicate(timeout=1800)
+            self.send_msg(9, msg='{}'.format(stdout), with_time=True)
+        except Exception:
+            self.logger.exception('DIA-NN process error')
+            self.send_msg(9, msg='DIA-NN process error', with_time=True)
         self.send_msg(21, '')

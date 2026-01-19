@@ -1,14 +1,15 @@
 import os.path
+import pickle
 import uuid
 
-import pandas as pd
-import pickle
 import numpy as np
+import pandas as pd
 
 from applet.db import db_utils_run_data
+from applet.obj.DBEntity import DIAOutputInfo
 from applet.obj.DBEntity import RunInfo, RunData, RunDataF4, RunDataS7
 from applet.obj.Entity import FileInfo, FileTypeEnum
-from applet.obj.PeptInfo import f_3_pept_list, f_15_16_pept_list
+from applet.obj.PeptInfo import f_3_pept_list, f_15_16_pept_list, f3_and_f15_pept_list
 from applet.service import common_service
 
 sequence_gravy_dict = {'LSVLLLER': 1.325, 'LYDNLLEQNLIR': -0.3, 'TGQAAGFSYTDANK': -0.75, 'FDDGAGGDNEVQR': -1.376923077,
@@ -21,11 +22,12 @@ sequence_gravy_dict = {'LSVLLLER': 1.325, 'LYDNLLEQNLIR': -0.3, 'TGQAAGFSYTDANK'
                        'LLLPGELAK': 0.844444444, 'AIAEELAPER': -0.29, 'FLEEATR': -0.542857143, 'MPEFYNR': -1.385714286,
                        'LFAEAVQK': 0.4375, 'IMGTSPLQIDR': -0.027272727}
 
-class DataSaveService(common_service.CommonService):
+
+class DIADataSaveService(common_service.CommonService):
 
     def __init__(self, data_source, base_output_path, s3_dir_path, s7_dir_path, file_list: [FileInfo], logger, step=9,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.s3_dir_path = s3_dir_path
         # F4
         self.f4_file_path = None
@@ -66,6 +68,7 @@ class DataSaveService(common_service.CommonService):
             delete_run_info = []
 
             save_data = []
+            diann_data_list = []
             for file_info in self.file_list:
                 save_run_data_list = []
                 save_run_data_f4 = []
@@ -88,7 +91,7 @@ class DataSaveService(common_service.CommonService):
 
                 f17_data_list = self.read_f17(file_info)
 
-                f3_data_list, f15_data_list, f16_data_list = self.read_f3_f15_f16(file_info)
+                f3_data_list, f15_data_list, f16_data_list, f103_data_list = self.read_f3_f15_f16(file_info)
 
                 save_run_data_list.extend(f5_data_list)
                 save_run_data_list.extend(f6_data_list)
@@ -105,18 +108,41 @@ class DataSaveService(common_service.CommonService):
                 save_run_data_f4.extend(f4_data_list)
 
                 save_run_data_s7.extend(f3_data_list)
+                save_run_data_s7.extend(f103_data_list)
                 save_run_data_s7.extend(f15_data_list)
                 save_run_data_s7.extend(f16_data_list)
 
+                diann_output_df = pd.read_csv(file_info.diann_result_stats_file_path, sep='\t')
+                row_data = diann_output_df.iloc[0]
+                diann_data = DIAOutputInfo()
+                diann_data.seq_id = run_info.seq_id
+                diann_data.file_name = file_info.file_name
+                diann_data.data_source = self.data_source
+                diann_data.precursor_ident = int(row_data['Precursors.Identified'])
+                diann_data.protein_ident = int(row_data['Proteins.Identified'])
+                diann_data.total_quantity = int(row_data['Total.Quantity'])
+                diann_data.ms1_signal = int(row_data['MS1.Signal'])
+                diann_data.ms2_signal = int(row_data['MS2.Signal'])
+                diann_data.fwhm_scans = float(row_data['FWHM.Scans'])
+                diann_data.fwhm_rt = float(row_data['FWHM.RT'])
+                diann_data.acc_ms1 = float(row_data['Median.Mass.Acc.MS1'])
+                diann_data.acc_ms1_corr = float(row_data['Median.Mass.Acc.MS1.Corrected'])
+                diann_data.acc_ms2 = float(row_data['Median.Mass.Acc.MS2'])
+                diann_data.acc_ms2_corr = float(row_data['Median.Mass.Acc.MS2.Corrected'])
+                diann_data.ms2_instability = float(row_data['MS2.Mass.Instability'])
+                diann_data.run_prefix = file_info.run_prefix
+                #
+                diann_data_list.append(diann_data)
+
                 save_data.append((run_info, save_run_data_list, save_run_data_f4, save_run_data_s7))
-            return delete_run_info, save_data
+            return delete_run_info, save_data, diann_data_list
         except Exception as e:
             logger.exception('Deal save data exception %s', e)
             return False
         finally:
             self.is_running = False
 
-    def deal_data_save(self, delete_run_info, save_data_list, pred_info_list):
+    def deal_data_save(self, delete_run_info, save_data_list, pred_info_list, diann_data_list):
         logger = self.logger
         try:
             self.is_running = True
@@ -132,19 +158,18 @@ class DataSaveService(common_service.CommonService):
                 save_run_data_s7.extend(base_save_data[3])
             return db_utils_run_data.add_thiz_data(delete_run_info, save_run_info,
                                                    save_run_data_list, save_run_data_f4, save_run_data_s7,
-                                                   pred_info_list)
+                                                   pred_info_list, diann_data_list)
         except Exception as e:
             logger.exception('Deal save data exception %s', e)
             return False
         finally:
             self.is_running = False
 
-
     def calc_delt_rt(self, str_seq, diann_rt):
         # △RT (predict RT- DIA-NN RT)
         with open('resource/model/T.pkl', mode='rb') as f:
             model_data = pickle.load(f)
-        org_vaa = np.array(sequence_gravy_dict.get(str_seq)).reshape(-1, 1)
+        org_vaa = np.array(sequence_gravy_dict.get(str_seq, 0)).reshape(-1, 1)
         pred_rt = model_data.predict(org_vaa).tolist()[0]
         return pred_rt - diann_rt
 
@@ -152,14 +177,16 @@ class DataSaveService(common_service.CommonService):
         logger = self.logger
         logger.info('Start read f3')
         f3_data_list = []
+        f103_data_list = []
         f15_data_list = []
         f16_data_list = []
         run_name = file_info.run_name
         main_file_abs_path = os.path.join(file_info.diann_result_file_path)
         df = pd.read_csv(main_file_abs_path, sep='\t')
         df = df.sort_values(by='Precursor.Quantity', ascending=False, ignore_index=True)
-        f3_df = df[df['Stripped.Sequence'].isin(f_3_pept_list)]
-        f15_16_df = df[df['Stripped.Sequence'].isin(f_15_16_pept_list)]
+        f3_df = df[df['Stripped.Sequence'].isin(f3_and_f15_pept_list)]
+        f15_16_df = df[df['Stripped.Sequence'].isin(f3_and_f15_pept_list)]
+        exist_pept_name = []
 
         f3_df_new = f3_df[
             (f3_df['Precursor.Charge'] == 2) & (~f3_df['Precursor.Id'].str.contains('(UniMod:35)'))]
@@ -169,7 +196,7 @@ class DataSaveService(common_service.CommonService):
             diann_rt = each_row['RT']
             exist_seq_data[str_seq] = diann_rt
 
-        for each_f3_seq in f_3_pept_list:
+        for each_f3_seq in f3_and_f15_pept_list:
             diann_rt = exist_seq_data.get(each_f3_seq)
             if diann_rt is None:
                 diann_rt = 0
@@ -180,6 +207,13 @@ class DataSaveService(common_service.CommonService):
             run_data_s7.pept = each_f3_seq
             run_data_s7.data_val = deltra_rt
             f3_data_list.append(run_data_s7)
+
+            run_data_s7_103 = RunDataS7()
+            run_data_s7_103.seq_id = self.run_name_seq_dict[run_name]
+            run_data_s7_103.data_tag = 103
+            run_data_s7_103.pept = each_f3_seq
+            run_data_s7_103.data_val = diann_rt
+            f103_data_list.append(run_data_s7_103)
 
         exist_pept_name = []
         for index, row in f15_16_df.iterrows():
@@ -206,7 +240,7 @@ class DataSaveService(common_service.CommonService):
             run_data_s16.data_val = f16_val
             f16_data_list.append(run_data_s16)
 
-        return f3_data_list, f15_data_list, f16_data_list
+        return f3_data_list, f15_data_list, f16_data_list, f103_data_list
 
     def read_f4(self, run_info):
         logger = self.logger
@@ -359,6 +393,13 @@ class DataSaveService(common_service.CommonService):
             run_data.data_val = f9_val
             data_list.append(run_data)
 
+            f110_val = float(row['FWHM.RT'])
+            run_data110 = RunData()
+            run_data110.seq_id = self.run_name_seq_dict[run_name]
+            run_data110.data_tag = 110
+            run_data110.data_val = f110_val
+            data_list.append(run_data110)
+
         return data_list
 
     def read_f10(self, file_info):
@@ -399,8 +440,12 @@ class DataSaveService(common_service.CommonService):
             data_list.append(run_data)
         return data_list
 
+    '''
+    f12 = f8 / f11 
+    '''
+
     def build_f12(self, f8_data_list, f11_data_list):
-        # 转为两个map
+        #
         f11_data_dict = {}
         for f11_data in f11_data_list:
             f11_data_dict[f11_data.seq_id] = f11_data.data_val

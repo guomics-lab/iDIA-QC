@@ -10,8 +10,8 @@ from applet.service import common_service
 class ClearMzmlService(common_service.CommonService):
 
     def __init__(self, base_output_path, file_list: [FileInfo], logger, step=13,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
 
     def deal_process(self):
         logger = self.logger

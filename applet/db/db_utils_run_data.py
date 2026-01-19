@@ -1,8 +1,8 @@
 import os.path
 import sqlite3
 
-from applet.logger_utils import logger
-from applet.obj.DBEntity import RunInfo, RunData, RunDataF4, RunDataS7, PredInfo
+from loguru import logger
+from applet.obj.DBEntity import RunInfo, RunData, RunDataF4, RunDataS7, PredInfo, DIAOutputInfo
 
 db_dir_path = os.path.join(os.getcwd(), 'db')
 if not os.path.exists(db_dir_path):
@@ -32,7 +32,8 @@ def add_run_info(run_info: RunInfo):
 
 #
 def add_thiz_data(delete_run_name, save_run_info: [RunInfo], save_run_data_list: [RunData],
-                  save_run_data_f4: [RunDataF4], save_run_data_s7: [RunDataS7], pred_info_list: [PredInfo]):
+                  save_run_data_f4: [RunDataF4], save_run_data_s7: [RunDataS7], pred_info_list: [PredInfo],
+                  diann_data_list: [DIAOutputInfo]):
     try:
         logger.info('Start save data to db')
         c = conn.cursor()
@@ -74,6 +75,18 @@ def add_thiz_data(delete_run_name, save_run_info: [RunInfo], save_run_data_list:
         for pred_info in pred_info_list:
             batch_insert_run_info_list.append(pred_info.get_key_val())
         c.executemany(save_pred_info_sql, batch_insert_run_info_list)
+
+        save_diann_data_sql = (
+            'insert into dia_output_info(seq_id, run_prefix, file_name, data_source, precursor_ident, protein_ident, total_quantity, ms1_signal, '
+            'ms2_signal, fwhm_scans, fwhm_rt, acc_ms1, acc_ms1_corr, acc_ms2, acc_ms2_corr, ms2_instability) '
+            'values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ')
+
+        batch_insert_diann_data_list = []
+        for diann_data in diann_data_list:
+            batch_insert_diann_data_list.append(diann_data.get_key_val())
+
+        print(batch_insert_diann_data_list)
+        c.executemany(save_diann_data_sql, batch_insert_diann_data_list)
 
         conn.commit()
         logger.info('Success save data to db')
@@ -148,7 +161,7 @@ def query_run_info_all(source=1) -> [RunInfo]:
     sql = 'SELECT inst_name, run_id, run_name, file_name, seq_id, state, file_type, gmt_create, run_prefix from run_info where source = ? and is_delete = 0 '
     try:
         c = conn.cursor()
-        c.execute(sql, (source, ))
+        c.execute(sql, (source,))
         results = c.fetchall()
         for row in results:
             run_info = RunInfo()
@@ -181,6 +194,98 @@ def query_run_data(seq_id_list) -> [RunData]:
             result_list.append(run_data)
     except Exception as e:
         logger.exception('query query_run_data error')
+    return result_list
+
+
+def query_diann_data() -> [DIAOutputInfo]:
+    result_list = []
+    sql = 'SELECT run_prefix, file_name, precursor_ident, protein_ident from dia_output_info where data_source = 5 order by seq_id asc '
+    try:
+        c = conn.cursor()
+        c.execute(sql)
+        results = c.fetchall()
+        for row in results:
+            run_data = DIAOutputInfo()
+            run_data.run_prefix = row[0]
+            run_data.file_name = row[1]
+            run_data.precursor_ident = row[2]
+            run_data.protein_ident = row[3]
+            result_list.append(run_data)
+    except Exception as e:
+        logger.exception('query dia_output_info error')
+    return result_list
+
+
+
+def query_run_info_list_recent() -> [RunInfo]:
+    result_list = []
+    sql = 'SELECT inst_name, run_id, run_name, file_name, seq_id, file_type, run_prefix, source from run_info where source = 1 and is_delete = 0 order by id desc limit 10'
+    try:
+        c = conn.cursor()
+        c.execute(sql)
+        results = c.fetchall()
+        for row in results:
+            run_info = RunInfo()
+            run_info.inst_name = row[0]
+            run_info.run_id = row[1]
+            run_info.run_name = row[2]
+            run_info.file_name = row[3]
+            run_info.seq_id = row[4]
+            run_info.file_type = row[5]
+            run_info.run_prefix = row[6]
+            run_info.source = row[7]
+            result_list.append(run_info)
+        return result_list
+    except Exception as e:
+        logger.exception('query query_run_info_list error')
+    return result_list
+
+
+def query_run_info_list_recent_by_inst_name(inst_name):
+    result_list = []
+    sql = 'SELECT inst_name, run_id, run_name, file_name, seq_id, file_type, run_prefix, source from run_info where inst_name = ? and source = 1 and is_delete = 0 order by id desc limit 5'
+    try:
+        c = conn.cursor()
+        c.execute(sql, (inst_name,))
+        results = c.fetchall()
+        for row in results:
+            run_info = RunInfo()
+            run_info.inst_name = row[0]
+            run_info.run_id = row[1]
+            run_info.run_name = row[2]
+            run_info.file_name = row[3]
+            run_info.seq_id = row[4]
+            run_info.file_type = row[5]
+            run_info.run_prefix = row[6]
+            run_info.source = row[7]
+            result_list.append(run_info)
+        return result_list
+    except Exception as e:
+        logger.exception('query query_run_info_list error')
+    return result_list
+
+
+def query_run_info_list_recent_by_run_prefix(run_prefix):
+    result_list = []
+    sql = 'SELECT inst_name, run_id, run_name, file_name, seq_id, file_type, run_prefix, source from run_info where run_prefix = ? and source = 1 and is_delete = 0 order by id desc limit 5'
+    try:
+        c = conn.cursor()
+        c.execute(sql, (run_prefix,))
+        results = c.fetchall()
+        for row in results:
+            run_info = RunInfo()
+            run_info.inst_name = row[0]
+            run_info.run_id = row[1]
+            run_info.run_name = row[2]
+            run_info.file_name = row[3]
+            run_info.seq_id = row[4]
+            run_info.file_type = row[5]
+            run_info.run_prefix = row[6]
+            run_info.source = row[7]
+            result_list.append(run_info)
+        return result_list
+    except Exception as e:
+        logger.exception('query query_run_info_list error')
     return result_list
 
 
@@ -294,6 +399,86 @@ def query_all_pred_info(seq_id_list) -> [PredInfo]:
     except Exception as e:
         logger.exception('query_all_pred_info error')
     return pred_info_list
+
+
+def query_diann_data_exist(data_source, file_name):
+    sql = 'SELECT file_name from dia_output_info where data_source = ? and file_name = ? '
+    c = conn.cursor()
+    c.execute(sql, (data_source, file_name))
+    results = c.fetchall()
+    if len(results) == 0:
+        return False
+    return True
+
+
+def save_diann_data(diann_data_list: [DIAOutputInfo]):
+    try:
+        c = conn.cursor()
+        save_diann_data_sql = (
+            'insert into dia_output_info(seq_id, run_prefix, file_name, data_source, precursor_ident, protein_ident, total_quantity, ms1_signal, '
+            'ms2_signal, fwhm_scans, fwhm_rt, acc_ms1, acc_ms1_corr, acc_ms2, acc_ms2_corr, ms2_instability) '
+            'values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ')
+
+        batch_insert_diann_data_list = []
+        for diann_data in diann_data_list:
+            batch_insert_diann_data_list.append(diann_data.get_key_val())
+
+        print(batch_insert_diann_data_list)
+        c.executemany(save_diann_data_sql, batch_insert_diann_data_list)
+        conn.commit()
+    except Exception:
+        pass
+
+
+def query_diann_data_list_recent(data_source, run_prefix) -> []:
+    result_list = []
+    sql = 'SELECT file_name, run_prefix, precursor_ident, protein_ident from dia_output_info where data_source = ? and run_prefix = ? order by id desc limit 10'
+    try:
+        c = conn.cursor()
+        c.execute(sql, (data_source, run_prefix))
+        results = c.fetchall()
+        for row in results:
+            result_list.append({'file_name': row[0], 'run_prefix': row[1], 'precursor_ident': row[2], 'protein_ident': row[3]})
+        return result_list
+    except Exception as e:
+        logger.exception('query query_diann_data_list_recent error')
+    return result_list
+
+
+def query_all_diann_data(data_source, run_prefix=None) -> []:
+    diann_info_list = []
+    if run_prefix:
+        sql = 'SELECT file_name, precursor_ident, protein_ident, total_quantity, ms1_signal, ms2_signal, fwhm_scans, fwhm_rt, acc_ms1, acc_ms1_corr, acc_ms2, acc_ms2_corr, ms2_instability, run_prefix from dia_output_info where data_source = ? and run_prefix = ? '
+    else:
+        sql = 'SELECT file_name, precursor_ident, protein_ident, total_quantity, ms1_signal, ms2_signal, fwhm_scans, fwhm_rt, acc_ms1, acc_ms1_corr, acc_ms2, acc_ms2_corr, ms2_instability, run_prefix from dia_output_info where data_source = ? '
+    try:
+        c = conn.cursor()
+        if run_prefix:
+            c.execute(sql, (data_source, run_prefix))
+        else:
+            c.execute(sql, (data_source, ))
+        results = c.fetchall()
+        for row in results:
+            diann_info = {}
+            diann_info['File name'] = row[0]
+            diann_info['Precursors.Identified'] = row[1]
+            diann_info['Proteins.Identified'] = row[2]
+            diann_info['Total.Quantity'] = row[3]
+            diann_info['MS1.Signal'] = row[4]
+            diann_info['MS2.Signal'] = row[5]
+            diann_info['FWHM.Scans'] = row[6]
+            diann_info['FWHM.RT'] = row[7]
+            diann_info['Median.Mass.Acc.MS1'] = row[8]
+            diann_info['Median.Mass.Acc.MS1.Corrected'] = row[9]
+            diann_info['Median.Mass.Acc.MS2'] = row[10]
+            diann_info['Median.Mass.Acc.MS2.Corrected'] = row[11]
+            diann_info['MS2.Mass.Instability'] = row[12]
+            diann_info['run_prefix'] = row[13]
+            diann_info_list.append(diann_info)
+    except Exception as e:
+        logger.exception('query_all_diann_data error')
+    return diann_info_list
+
 
 
 

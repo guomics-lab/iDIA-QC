@@ -8,21 +8,21 @@ from pyteomics import mzxml
 
 from applet.obj.Entity import FileInfo
 from applet.service import common_service
-from applet.service import f17_process
+from applet.service.dia import f17_process
 
 
 class S3Service(common_service.CommonService):
 
     def __init__(self, base_output_path, s3_output_path, file_list: [FileInfo], logger, step=5,
-                 pub_channel='analysis_info', start_time=0):
-        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time)
+                 pub_channel='analysis_info', start_time=0, conn_send=None):
+        common_service.CommonService.__init__(self, base_output_path, file_list, logger, step, pub_channel, start_time, conn_send=conn_send)
         self.s3_output_path = s3_output_path
 
     def deal_process(self):
         logger = self.logger
         try:
+            ts31 = time.time()
             self.is_running = True
-            # 、stat、mzXML
             logger.info('start S3 process')
             self.send_msg(9, self.build_start_diaqc_cmd())
             self.send_msg(0, 'Processing S3 step to obtain the F5, F6, F7, F10, F13, F14 and F17', with_time=True)
@@ -40,13 +40,11 @@ class S3Service(common_service.CommonService):
             for key, value in savedict.items():
                 init_write(self.s3_output_path, feadata, key, value)
             feadata['ERROR'] = open(self.s3_output_path + '/ERROR_Files.txt', 'w')
-            #
             deal_file_count = 0
             file_number = len(self.file_list)
 
             run_ins_id_dict = {}
             for run_file_parameter in self.file_list:
-                # self.send_msg(9, 'Handle mzxml diann result: {}'.format(run_file_parameter.run_name))
                 deal_file_count = deal_file_count + 1
                 if run_file_parameter.jump_deal:
                     continue
@@ -105,9 +103,12 @@ class S3Service(common_service.CommonService):
             if not self.run_flag:
                 self.send_msg(2)
                 return False
+            # self.send_msg(9, 'Deal F17 data')
             f17_process.deal(self.s3_output_path, self.file_list)
+            ts32 = time.time()
+            logger.info('s3_time, file: {}, run_prefix: {}, speed_time: {}, '.format(self.file_list[0].file_name, self.file_list[0].run_prefix, ts32 - ts31))
 
-            self.send_msg(1, 'Saving S3 results', with_time=True)
+            self.send_msg(1, 'Saving F5, F6, F7, F10, F13, F14 and F17 results', with_time=True)
             return True
         except Exception as e:
             logger.exception('Deal S3 exception')
@@ -131,7 +132,7 @@ class S3Service(common_service.CommonService):
             f3_charge = get_charge_state(main_result)
             f4_jumps = get_intensity_jumps_fails(mzxml_result)
             f6_ms1_acc, f7_ms2_acc = get_MMAcc(stats_result)
-            f12, f13 = get_total_number(main_result)
+            f12, f13 = get_total_number(stats_result, main_result)
 
             fealist = [f3_charge, f4_jumps, f6_ms1_acc, f7_ms2_acc, f12, f13]
             for i, key in enumerate(savedict.keys()):
@@ -313,10 +314,11 @@ class S3Service(common_service.CommonService):
         logger.info('end deal f14')
 
 
-def get_total_number(main_result):
+def get_total_number(stats_result, main_result):
+
     name = main_result['Run'].unique()[0]
-    return pd.DataFrame([{'Run': name, 'Peptide Number': main_result['Modified.Sequence'].nunique()}]), \
-        pd.DataFrame([{'Run': name, 'Protein Number': main_result['Protein.Ids'].nunique()}])
+    return pd.DataFrame([{'Run': name, 'Peptide Number': stats_result['Precursors.Identified'].tolist()[0]}]), \
+        pd.DataFrame([{'Run': name, 'Protein Number': stats_result['Proteins.Identified'].tolist()[0]}])
 
 
 def __stats_from_stats(base_output_path, diann_stats_file):
